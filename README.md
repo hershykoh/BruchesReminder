@@ -1,4 +1,4 @@
-# ✡ Bracha Reminder
+# 🍽️ Bracha Reminder
 
 A Windows system tray app that reminds you to say your **Bracha Achrona** after eating or drinking.
 
@@ -11,7 +11,7 @@ A Windows system tray app that reminds you to say your **Bracha Achrona** after 
 - **Live countdowns** in the UI and tray menu
 - **Multiple simultaneous reminders**
 - **Cancel individual** reminders or all at once
-- **Dark, Hebrew-aware UI** with Stars of David and color-coded cards
+- **Dark, Hebrew-aware UI** with color-coded cards
 
 ## Supported Brachot
 

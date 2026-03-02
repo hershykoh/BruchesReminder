@@ -71,28 +71,55 @@ function drawIcon(x, y, w, h) {
   // Background circle — deep navy
   if (dist > r) return [30, 30, 50]; // transparent-ish border
 
-  // Star of David (two overlapping triangles)
-  const tr = r * 0.55; // triangle circumradius
-  function inTriangle(px, py, angle) {
-    const pts = [0, 120, 240].map((a) => {
-      const rad = ((a + angle) * Math.PI) / 180;
-      return [cx + tr * Math.sin(rad), cy - tr * Math.cos(rad)];
-    });
-    function sign(ax, ay, bx, by, qx, qy) {
-      return (ax - qx) * (by - ay) - (bx - ax) * (qy - ay);
-    }
-    const d1 = sign(pts[0][0], pts[0][1], pts[1][0], pts[1][1], px, py);
-    const d2 = sign(pts[1][0], pts[1][1], pts[2][0], pts[2][1], px, py);
-    const d3 = sign(pts[2][0], pts[2][1], pts[0][0], pts[0][1], px, py);
-    const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
-    const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
-    return !(hasNeg && hasPos);
-  }
+  // ── Plate (circle outline) ──────────────────────────────────────────────
+  // Outer plate rim
+  const plateR   = r * 0.82;
+  const plateRin = r * 0.65; // inner plate area
+  const inRim    = dist <= plateR && dist > plateRin;
 
-  const inStar = inTriangle(x, y, 0) || inTriangle(x, y, 180);
+  // Food on plate: a simple dome (filled semi-ellipse) representing a meal
+  const foodRx  = plateRin * 0.80;
+  const foodRy  = plateRin * 0.55;
+  const foodCy  = cy + plateRin * 0.10; // slightly below center
+  const fdfx    = (x - cx) / foodRx;
+  const fdfy    = (y - foodCy) / foodRy;
+  const inFood  = (fdfx * fdfx + fdfy * fdfy) <= 1 && y <= foodCy; // upper dome
 
-  if (inStar) return [251, 191, 36]; // golden star
-  if (dist <= r) return [30, 58, 138]; // navy circle
+  // Fork — left of center: two tines (thin rects) + handle
+  const forkX    = cx - r * 0.42;
+  const tineHW   = r * 0.038;
+  const tineGap  = r * 0.11;
+  const tineTop  = cy - r * 0.72;
+  const tineBot  = cy - r * 0.30;
+  const handleT  = cy - r * 0.30;
+  const handleB  = cy + r * 0.72;
+  const handleHW = r * 0.055;
+  const inForkTine = (
+    (Math.abs(x - (forkX - tineGap)) <= tineHW || Math.abs(x - (forkX + tineGap)) <= tineHW)
+    && y >= tineTop && y <= tineBot
+  );
+  const inForkHandle = Math.abs(x - forkX) <= handleHW && y >= handleT && y <= handleB;
+  const inFork = inForkTine || inForkHandle;
+
+  // Knife — right of center: thin blade + wider handle
+  const knifeX   = cx + r * 0.42;
+  const bladeHW  = r * 0.055;
+  const bladeTop = cy - r * 0.72;
+  const bladeBot = cy - r * 0.20;
+  const kHandleHW = r * 0.095;
+  const kHandleT  = cy - r * 0.20;
+  const kHandleB  = cy + r * 0.72;
+  const inKnife   = (
+    (Math.abs(x - knifeX) <= bladeHW  && y >= bladeTop && y <= bladeBot) ||
+    (Math.abs(x - knifeX) <= kHandleHW && y >= kHandleT && y <= kHandleB)
+  );
+
+  // Colors
+  if (inFork || inKnife) return [220, 220, 230]; // silver cutlery
+  if (inRim)             return [240, 230, 210]; // cream plate rim
+  if (inFood)            return [235, 170,  80]; // warm food colour
+  if (dist <= plateRin)  return [255, 248, 235]; // plate surface
+  if (dist <= r)         return [ 40,  80, 160]; // cobalt blue background
   return [20, 20, 40];
 }
 

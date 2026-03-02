@@ -8,7 +8,7 @@ test.describe("Main window", () => {
     await expect(mainPage.locator(".titlebar-title")).toContainText("Bracha Reminder");
   });
 
-  test("renders the star-of-david icon in the title bar", async ({ mainPage }) => {
+  test("renders the candle icon in the title bar", async ({ mainPage }) => {
     await expect(mainPage.locator(".titlebar-title .star")).toBeVisible();
   });
 

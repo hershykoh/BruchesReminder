@@ -200,7 +200,7 @@ function buildTrayMenu(): Electron.Menu {
 
   return Menu.buildFromTemplate([
     {
-      label: "✡ Bracha Reminder",
+      label: "🍽️ Bracha Reminder",
       enabled: false,
     },
     { type: "separator" },
