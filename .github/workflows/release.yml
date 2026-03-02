@@ -15,23 +15,20 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
-      fail-fast: false
+      fail-fast: false   # keep building other platforms even if one fails
       matrix:
         include:
           - name: Windows
             os: windows-latest
             artifact_name: windows-installer
-            artifact_glob: "release/*.exe"
 
           - name: macOS
             os: macos-latest
             artifact_name: mac-dmg
-            artifact_glob: "release/*.dmg"
 
           - name: Linux
             os: ubuntu-latest
             artifact_name: linux-appimage
-            artifact_glob: "release/*.AppImage"
 
     steps:
       - name: Checkout
@@ -43,7 +40,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      # ── Set package version from the git tag (strips leading "v") ──────────
+      # Strip leading "v" from tag and stamp package.json version
       - name: Set version from tag
         shell: bash
         run: |
@@ -51,81 +48,64 @@ jobs:
           npm pkg set version="$TAG"
           echo "Building version $TAG"
 
-      # ── Install dependencies ───────────────────────────────────────────────
-      # Windows: download Electron binary via PowerShell (avoids cert issues)
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
+      # ── Install dependencies ────────────────────────────────────────────────
+      # Skip the Electron binary postinstall on all platforms:
+      # electron-builder downloads its own Electron for packaging anyway.
+      - name: Install dependencies
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
         run: npm ci
 
-      - name: Download Electron binary (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $version = node -e "process.stdout.write(require('./node_modules/electron/package.json').version)"
-          $url = "https://github.com/electron/electron/releases/download/v$version/electron-v$version-win32-x64.zip"
-          $cache = "$env:LOCALAPPDATA\electron\Cache"
-          New-Item -ItemType Directory -Force -Path $cache | Out-Null
-          $zip = "$cache\electron-v$version-win32-x64.zip"
-          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-          Expand-Archive -Path $zip -DestinationPath "node_modules\electron\dist" -Force
-          Set-Content -Path "node_modules\electron\path.txt" -Value "dist\electron.exe"
-          Write-Host "Electron $version ready."
-
-      - name: Install dependencies (macOS / Linux)
-        if: runner.os != 'Windows'
-        run: npm ci
-
-      # ── Generate icon assets ───────────────────────────────────────────────
+      # ── Generate icon assets ────────────────────────────────────────────────
       - name: Generate PNG + ICO icons
         run: node scripts/generate-icon.js
 
-      # On macOS, electron-builder needs ICNS; sips converts PNG → ICNS
-      - name: Convert PNG to ICNS (macOS)
+      # On macOS, electron-builder needs ICNS; sips + iconutil convert PNG → ICNS
+      - name: Convert PNG to ICNS (macOS only)
         if: runner.os == 'macOS'
+        shell: bash
         run: |
           mkdir -p assets/icon.iconset
-          # Generate the required resolutions for an iconset
           for size in 16 32 64 128 256 512; do
-            sips -z $size $size assets/icon.png --out "assets/icon.iconset/icon_${size}x${size}.png" >/dev/null
+            sips -z $size $size assets/icon.png \
+              --out "assets/icon.iconset/icon_${size}x${size}.png"    >/dev/null
           done
           for size in 32 64 256 512; do
             double=$((size * 2))
-            sips -z $double $double assets/icon.png --out "assets/icon.iconset/icon_${size}x${size}@2x.png" >/dev/null
+            sips -z $double $double assets/icon.png \
+              --out "assets/icon.iconset/icon_${size}x${size}@2x.png" >/dev/null
           done
           iconutil -c icns assets/icon.iconset -o assets/icon.icns
           echo "✓ Generated assets/icon.icns"
 
-      # Update package.json to use ICNS on macOS build
-      - name: Use ICNS for macOS build
+      - name: Use ICNS icon for macOS build
         if: runner.os == 'macOS'
         run: npm pkg set build.mac.icon=assets/icon.icns
 
-      # ── Build TypeScript ───────────────────────────────────────────────────
+      # ── Compile TypeScript ──────────────────────────────────────────────────
       - name: Build TypeScript
         run: npm run build
 
-      # ── Electron-builder per platform ─────────────────────────────────────
+      # ── Package with electron-builder ───────────────────────────────────────
       - name: Build Windows installer (NSIS)
         if: runner.os == 'Windows'
         env:
-          # Optional code-signing. Add these secrets in GitHub repo settings.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Uncomment + add secrets for code-signing:
           # CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           # CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --publish never
 
       - name: Build macOS DMG
         if: runner.os == 'macOS'
         env:
-          # Optional notarization. Add these secrets in GitHub repo settings:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Uncomment + add secrets for notarization:
           # APPLE_ID: ${{ secrets.APPLE_ID }}
           # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           # CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           # CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --mac --publish never
 
       - name: Build Linux AppImage
@@ -134,72 +114,58 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --linux --publish never
 
-      # ── List built artifacts (debug) ───────────────────────────────────────
-      - name: List release artifacts
+      # ── Show what was built ─────────────────────────────────────────────────
+      - name: List release/ directory
         shell: bash
-        run: ls -lh release/ || true
+        run: ls -lh release/ 2>/dev/null || echo "release/ is empty"
 
-      # ── Upload artifacts for the publish job ──────────────────────────────
+      # ── Upload artifacts (only real installer files, skip yml metadata) ─────
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          # Match the installer files (exclude yml metadata files)
           path: |
             release/*.exe
             release/*.dmg
             release/*.AppImage
-          if-no-files-found: warn
+          if-no-files-found: error   # fail loudly if nothing was built
           retention-days: 7
 
-  # ─── Publish: create GitHub Release once all platforms are built ─────────
+  # ─── Publish: create the GitHub Release ─────────────────────────────────────
   publish:
     name: Publish GitHub Release
     needs: build
     runs-on: ubuntu-latest
+    # Run even if some platform builds failed (fail-fast: false means others still ran)
+    if: ${{ !cancelled() }}
 
     steps:
-      - name: Checkout (for release notes)
+      - name: Checkout (for changelog)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Download all platform artifacts into separate sub-folders
-      - name: Download Windows installer
+      # Download all platform artifacts into one tree: artifacts/<name>/file
+      - name: Download all installer artifacts
         uses: actions/download-artifact@v4
         with:
-          name: windows-installer
-          path: artifacts/windows
+          path: artifacts
+          # omitting 'name' downloads every artifact from this run
 
-      - name: Download macOS DMG
-        uses: actions/download-artifact@v4
-        with:
-          name: mac-dmg
-          path: artifacts/mac
-
-      - name: Download Linux AppImage
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-appimage
-          path: artifacts/linux
-
-      - name: List all downloaded artifacts
+      - name: List downloaded artifacts
         run: find artifacts -type f | sort
 
-      # Generate a simple changelog from commits since last tag
+      # Build a simple changelog from commits since the previous tag
       - name: Generate changelog
-        id: changelog
         shell: bash
         run: |
-          PREV_TAG=$(git tag --sort=-creatordate | grep -v "$GITHUB_REF_NAME" | head -n1 || echo "")
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${GITHUB_REF_NAME}$" | head -n1 || true)
           if [ -n "$PREV_TAG" ]; then
-            LOG=$(git log "$PREV_TAG"..HEAD --pretty=format:"- %s (%an)" --no-merges)
+            git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%an)" --no-merges > changelog.txt
           else
-            LOG=$(git log --pretty=format:"- %s (%an)" --no-merges | head -50)
+            git log --pretty=format:"- %s (%an)" --no-merges | head -50 > changelog.txt
           fi
-          # Write to file to handle multi-line output
-          echo "$LOG" > changelog.txt
-          echo "Generated changelog."
+          cat changelog.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -209,9 +175,10 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           body_path: changelog.txt
+          fail_on_unmatched_files: false
           files: |
-            artifacts/windows/*.exe
-            artifacts/mac/*.dmg
-            artifacts/linux/*.AppImage
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
