@@ -123,9 +123,10 @@ function drawIcon(x, y, w, h) {
   return [20, 20, 40];
 }
 
-// ─── ICO writer (Vista+ format — embeds the raw PNG bytes) ───────────────────
-function writeICO(pngBuffers) {
-  const count = pngBuffers.length;
+// ─── ICO writer (Vista+ format — embeds raw PNG bytes at multiple sizes) ─────
+// images: Array of { png: Buffer, size: number }
+function writeICO(images) {
+  const count = images.length;
   const headerSize = 6;
   const dirEntrySize = 16;
   let imageOffset = headerSize + dirEntrySize * count;
@@ -136,33 +137,38 @@ function writeICO(pngBuffers) {
   header.writeUInt16LE(count, 4); // number of images
 
   const entries = [];
-  for (const png of pngBuffers) {
+  for (const { png, size } of images) {
     const entry = Buffer.alloc(16);
-    entry[0] = 0;         // width  (0 = 256)
-    entry[1] = 0;         // height (0 = 256)
-    entry[2] = 0;         // color count
+    entry[0] = size >= 256 ? 0 : size; // width  (0 = 256 per ICO spec)
+    entry[1] = size >= 256 ? 0 : size; // height (0 = 256 per ICO spec)
+    entry[2] = 0;         // color count (0 = no palette)
     entry[3] = 0;         // reserved
     entry.writeUInt16LE(1, 4);                  // planes
     entry.writeUInt16LE(32, 6);                 // bit count
     entry.writeUInt32LE(png.length, 8);         // bytes in resource
-    entry.writeUInt32LE(imageOffset, 12);       // offset
+    entry.writeUInt32LE(imageOffset, 12);       // offset to image data
     imageOffset += png.length;
     entries.push(entry);
   }
 
-  return Buffer.concat([header, ...entries, ...pngBuffers]);
+  return Buffer.concat([header, ...entries, ...images.map(i => i.png)]);
 }
 
 // ─── Generate ─────────────────────────────────────────────────────────────────
 const assetsDir = path.join(__dirname, "..", "assets");
 fs.mkdirSync(assetsDir, { recursive: true });
 
-// 256×256 PNG — used directly on Linux, wrapped in ICO for Windows
+// 256×256 PNG — used directly on Linux/macOS and as base image
 const png256 = writePNG(256, 256, drawIcon);
 fs.writeFileSync(path.join(assetsDir, "icon.png"), png256);
 console.log("✓ Generated assets/icon.png (256×256)");
 
-// Windows ICO — wraps the 256×256 PNG (Vista+ supports embedded PNGs in ICO)
-const icoData = writeICO([png256]);
+// Multi-resolution ICO for Windows — crisp at all icon sizes
+const icoSizes = [16, 32, 48, 128, 256];
+const icoImages = icoSizes.map(size => ({
+  size,
+  png: writePNG(size, size, drawIcon),
+}));
+const icoData = writeICO(icoImages);
 fs.writeFileSync(path.join(assetsDir, "icon.ico"), icoData);
-console.log("✓ Generated assets/icon.ico  (Windows)");
+console.log(`✓ Generated assets/icon.ico  (${icoSizes.join("×, ")}× — multi-resolution)`);

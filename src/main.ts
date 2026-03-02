@@ -27,13 +27,9 @@ let activeReminders: Map<string, ActiveReminder> = new Map();
 let reminderIdCounter = 0;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const ASSETS_DIR = app.isPackaged
-  ? path.join(process.resourcesPath, "assets")
-  : path.join(__dirname, "..", "assets");
-
-const RENDERER_DIR = app.isPackaged
-  ? path.join(process.resourcesPath, "renderer")
-  : path.join(__dirname, "..", "renderer");
+// __dirname resolves correctly both in dev (dist/) and in packaged asar (app.asar/dist/)
+const ASSETS_DIR = path.join(__dirname, "..", "assets");
+const RENDERER_DIR = path.join(__dirname, "..", "renderer");
 
 // ─── Bracha Data ──────────────────────────────────────────────────────────────
 export interface BrachaItem {
