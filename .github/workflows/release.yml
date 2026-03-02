@@ -86,14 +86,24 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
+      # ── Code-sign certificate (Windows only, skipped if secret is absent) ───
+      - name: Decode code-signing certificate
+        if: runner.os == 'Windows' && env.WIN_CSC_B64 != ''
+        shell: pwsh
+        run: |
+          $bytes   = [Convert]::FromBase64String($env:WIN_CSC_B64)
+          $outPath = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($outPath, $bytes)
+          echo "CSC_LINK=$outPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+        env:
+          WIN_CSC_B64: ${{ secrets.WIN_CSC_LINK }}
+
       # ── Package with electron-builder ───────────────────────────────────────
-      - name: Build Windows installer (NSIS)
+      - name: Build Windows installer (NSIS + portable zip)
         if: runner.os == 'Windows'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Uncomment + add secrets for code-signing:
-          # CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          # CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: npx electron-builder --win --publish never
 
       - name: Build macOS DMG
@@ -126,6 +136,7 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: |
             release/*.exe
+            release/*.zip
             release/*.dmg
             release/*.AppImage
           if-no-files-found: error   # fail loudly if nothing was built
@@ -178,6 +189,7 @@ jobs:
           fail_on_unmatched_files: false
           files: |
             artifacts/**/*.exe
+            artifacts/**/*.zip
             artifacts/**/*.dmg
             artifacts/**/*.AppImage
         env:
