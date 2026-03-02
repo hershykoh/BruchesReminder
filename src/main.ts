@@ -116,13 +116,18 @@ export const BRACHOT: BrachaItem[] = [
   },
 ];
 
-// ─── Tray Icon (inline PNG generated programmatically) ────────────────────────
+// ─── Tray Icon ────────────────────────────────────────────────────────────────
+// On Windows use the multi-resolution ICO so the OS picks the right size (16/32/48)
+// instead of downscaling the 256-px PNG which produces blur.
 function getTrayIcon(): Electron.NativeImage {
-  const iconPath = path.join(ASSETS_DIR, "icon.png");
-  if (fs.existsSync(iconPath)) {
-    return nativeImage.createFromPath(iconPath);
+  const icoPath = path.join(ASSETS_DIR, "icon.ico");
+  if (process.platform === "win32" && fs.existsSync(icoPath)) {
+    return nativeImage.createFromPath(icoPath);
   }
-  // Fallback: 1x1 transparent (will show as blank, but functional)
+  const pngPath = path.join(ASSETS_DIR, "icon.png");
+  if (fs.existsSync(pngPath)) {
+    return nativeImage.createFromPath(pngPath);
+  }
   return nativeImage.createEmpty();
 }
 

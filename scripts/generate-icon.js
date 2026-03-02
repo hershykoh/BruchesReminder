@@ -66,61 +66,43 @@ function drawIcon(x, y, w, h) {
   const cx = w / 2, cy = h / 2;
   const dx = x - cx, dy = y - cy;
   const dist = Math.sqrt(dx * dx + dy * dy);
-  const r = w / 2 - 1;
+  const r = w / 2 - 0.5;
 
-  // Background circle — deep navy
-  if (dist > r) return [30, 30, 50]; // transparent-ish border
+  // Outside the main circle → thin dark border
+  if (dist > r) return [16, 16, 32];
 
-  // ── Plate (circle outline) ──────────────────────────────────────────────
-  // Outer plate rim
-  const plateR   = r * 0.82;
-  const plateRin = r * 0.65; // inner plate area
-  const inRim    = dist <= plateR && dist > plateRin;
+  // ── Plate ring ─────────────────────────────────────────────────────────
+  // rimWidth is at least 2px so it's visible even at 16×16
+  const plateR   = r * 0.80;
+  const rimWidth = Math.max(2, r * 0.14);
+  const plateRin = plateR - rimWidth;
+  if (dist <= plateR && dist >= plateRin) return [245, 235, 210]; // cream rim
 
-  // Food on plate: a simple dome (filled semi-ellipse) representing a meal
-  const foodRx  = plateRin * 0.80;
-  const foodRy  = plateRin * 0.55;
-  const foodCy  = cy + plateRin * 0.10; // slightly below center
-  const fdfx    = (x - cx) / foodRx;
-  const fdfy    = (y - foodCy) / foodRy;
-  const inFood  = (fdfx * fdfx + fdfy * fdfy) <= 1 && y <= foodCy; // upper dome
+  // ── Fork (left of center) ──────────────────────────────────────────────
+  const forkCx   = cx - r * 0.30;
+  const handleW  = Math.max(1, r * 0.11);  // bold handle, always ≥1px
+  const tineW    = Math.max(1, r * 0.07);
+  const tineGap  = Math.max(1, r * 0.13);
+  const topY     = cy - r * 0.68;
+  const tineEndY = cy - r * 0.18;
+  const botY     = cy + r * 0.68;
 
-  // Fork — left of center: two tines (thin rects) + handle
-  const forkX    = cx - r * 0.42;
-  const tineHW   = r * 0.038;
-  const tineGap  = r * 0.11;
-  const tineTop  = cy - r * 0.72;
-  const tineBot  = cy - r * 0.30;
-  const handleT  = cy - r * 0.30;
-  const handleB  = cy + r * 0.72;
-  const handleHW = r * 0.055;
-  const inForkTine = (
-    (Math.abs(x - (forkX - tineGap)) <= tineHW || Math.abs(x - (forkX + tineGap)) <= tineHW)
-    && y >= tineTop && y <= tineBot
-  );
-  const inForkHandle = Math.abs(x - forkX) <= handleHW && y >= handleT && y <= handleB;
-  const inFork = inForkTine || inForkHandle;
+  const onHandle = Math.abs(x - forkCx) <= handleW && y >= tineEndY && y <= botY;
+  // At small sizes (< 48px) draw a single bold prong instead of two tiny tines
+  const onTines  = w >= 48
+    ? (Math.abs(x - (forkCx - tineGap)) <= tineW || Math.abs(x - (forkCx + tineGap)) <= tineW)
+      && y >= topY && y < tineEndY
+    : Math.abs(x - forkCx) <= handleW && y >= topY && y < tineEndY;
 
-  // Knife — right of center: thin blade + wider handle
-  const knifeX   = cx + r * 0.42;
-  const bladeHW  = r * 0.055;
-  const bladeTop = cy - r * 0.72;
-  const bladeBot = cy - r * 0.20;
-  const kHandleHW = r * 0.095;
-  const kHandleT  = cy - r * 0.20;
-  const kHandleB  = cy + r * 0.72;
-  const inKnife   = (
-    (Math.abs(x - knifeX) <= bladeHW  && y >= bladeTop && y <= bladeBot) ||
-    (Math.abs(x - knifeX) <= kHandleHW && y >= kHandleT && y <= kHandleB)
-  );
+  if (onHandle || onTines) return [215, 215, 228]; // silver
 
-  // Colors
-  if (inFork || inKnife) return [220, 220, 230]; // silver cutlery
-  if (inRim)             return [240, 230, 210]; // cream plate rim
-  if (inFood)            return [235, 170,  80]; // warm food colour
-  if (dist <= plateRin)  return [255, 248, 235]; // plate surface
-  if (dist <= r)         return [ 40,  80, 160]; // cobalt blue background
-  return [20, 20, 40];
+  // ── Knife (right of center) ────────────────────────────────────────────
+  const knifeCx = cx + r * 0.30;
+  const knifeW  = Math.max(1, r * 0.11);
+  if (Math.abs(x - knifeCx) <= knifeW && y >= topY && y <= botY) return [215, 215, 228];
+
+  // ── Blue background ────────────────────────────────────────────────────
+  return [40, 80, 160];
 }
 
 // ─── ICO writer (Vista+ format — embeds raw PNG bytes at multiple sizes) ─────
