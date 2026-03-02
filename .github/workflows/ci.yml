@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["v*"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Install npm packages; skip Electron binary download on this step
+      # so that the postinstall script does not fail before we cache
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+        run: npm ci
+
+      # Download and extract the Electron binary separately so it ends up in
+      # the expected location (node_modules/electron/dist/electron.exe).
+      - name: Download Electron binary
+        run: |
+          $version = node -e "process.stdout.write(require('./node_modules/electron/package.json').version)"
+          $url = "https://github.com/electron/electron/releases/download/v$version/electron-v$version-win32-x64.zip"
+          $cache = "$env:LOCALAPPDATA\electron\Cache"
+          New-Item -ItemType Directory -Force -Path $cache | Out-Null
+          $zip = "$cache\electron-v$version-win32-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+          Expand-Archive -Path $zip -DestinationPath "node_modules\electron\dist" -Force
+          Set-Content -Path "node_modules\electron\path.txt" -Value "dist\electron.exe"
+          Write-Host "Electron $version ready."
+        shell: pwsh
+
+      - name: Generate icon assets
+        run: node scripts/generate-icon.js
+
+      - name: Build (TypeScript)
+        run: npm run build
+
+      - name: Run Playwright tests
+        run: npx playwright test --reporter=list
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: test-results/
+          retention-days: 14

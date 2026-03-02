@@ -1,0 +1,58 @@
+{
+  "name": "brucha-reminder",
+  "version": "1.0.0",
+  "description": "After-Bracha reminder app — reminds you to say Bracha Achrona after eating/drinking",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron .",
+    "dev": "tsc && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "test": "npm run build && npx playwright test",
+    "test:ui": "npm run build && npx playwright test --ui",
+    "test:headed": "npm run build && npx playwright test --headed",
+    "test:report": "npx playwright show-report test-results/html"
+  },
+  "keywords": [],
+  "author": "BruchaReminder",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.3.3",
+    "electron": "^40.6.1",
+    "electron-builder": "^26.8.1",
+    "playwright-core": "^1.58.2",
+    "typescript": "^5.9.3"
+  },
+  "build": {
+    "appId": "com.bruchareminder.app",
+    "productName": "Bracha Reminder",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "renderer/**/*"
+    ]
+  }
+}

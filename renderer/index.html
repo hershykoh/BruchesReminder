@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'" />
+  <title>Bracha Reminder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Hebrew:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Title Bar -->
+  <div class="titlebar">
+    <div class="titlebar-title">
+      <span class="star">✡</span>
+      Bracha Reminder
+    </div>
+    <button class="titlebar-close" id="btnClose" aria-label="Close to tray">✕</button>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content" id="mainView">
+
+    <!-- Active Reminders Banner -->
+    <div class="active-banner" id="activeBanner" style="display:none">
+      <div class="active-banner-title">⏰ Active Reminders</div>
+      <div id="activeList"></div>
+    </div>
+
+    <!-- Fired Alert -->
+    <div class="fired-alert" id="firedAlert" style="display:none">
+      <div class="fired-emoji" id="firedEmoji"></div>
+      <div class="fired-title">Time to say your Bracha Achrona!</div>
+      <div class="fired-body" id="firedBody"></div>
+      <button class="btn-dismiss" id="btnDismiss">Got it ✓</button>
+    </div>
+
+    <!-- Header -->
+    <div class="section-header">
+      <h2>What did you eat or drink?</h2>
+      <p class="subtitle">Tap a card to start a 20-minute reminder for your Bracha Achrona</p>
+    </div>
+
+    <!-- Bracha Cards Grid -->
+    <div class="cards-grid" id="cardsGrid">
+      <!-- populated by JS -->
+    </div>
+
+    <!-- Custom Timer -->
+    <div class="custom-timer-section">
+      <label for="customMinutes">Custom reminder time:</label>
+      <div class="custom-timer-row">
+        <input type="number" id="customMinutes" min="1" max="120" value="20" />
+        <span>minutes</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>Remember: Say your Bracha Achrona before the time runs out!</p>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
